@@ -104,6 +104,9 @@ function getAllSVGs(directoryPath, fileArray) {
  * @param {string} path
  */
 function isSVG(path) {
+	if(typeof path === "undefined" || path == "") {
+		return false;
+	}
 	var fileName = path.split("/").at(-1);
 	var fileExtension = fileName.split(".").at(1);
 	if(typeof fileExtension === "undefined" || fileExtension == "") {
@@ -117,10 +120,13 @@ function isSVG(path) {
 
 /**
  * 
- * @param {string} path - the path of the file
+ * @param {string} path - the path of the directory to be tested
  * @returns {boolean}
  */
 function isDirectory(path) {
+	if(typeof path === "undefined" || path == "") {
+		return false;
+	}
 	try {
 		// if path starts with leading '/', remove
 		if(path.startsWith('/')) {
