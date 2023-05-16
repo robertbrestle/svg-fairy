@@ -1,0 +1,69 @@
+{
+  "name": "svg-fairy",
+  "displayName": "svg-fairy",
+  "description": "",
+  "publisher": "robertbrestle",
+  "version": "0.0.1",
+  "preview": true,
+  "icon": "images/icon.png",
+  "repository": {
+    "url": "https://github.com/robertbrestle/svg-fairy.git",
+    "type": "git"
+  },
+  "keywords": [
+    "svg",
+    "svgo",
+    "development"
+  ],
+  "engines": {
+    "vscode": "^1.78.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "svg-fairy.optimizeInPlace",
+        "title": "SVG optimize in place"
+      },
+      {
+        "command": "svg-fairy.optimizeAndCopy",
+        "title": "SVG optimize and copy"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "group": "svg-fairy",
+          "command": "svg-fairy.optimizeInPlace"
+        },
+        {
+          "group": "svg-fairy",
+          "command": "svg-fairy.optimizeAndCopy"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.78.0",
+    "@vscode/test-electron": "^2.3.0",
+    "eslint": "^8.39.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "svgo": "^3.0.2"
+  }
+}
