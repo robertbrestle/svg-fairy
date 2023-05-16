@@ -5,7 +5,7 @@
   "publisher": "robertbrestle",
   "version": "0.0.1",
   "preview": true,
-  "icon": "images/icon.png",
+  "iconTODO": "images/icon.png",
   "repository": {
     "url": "https://github.com/robertbrestle/svg-fairy.git",
     "type": "git"
