@@ -8,4 +8,6 @@ All notable changes to the "svg-fairy" extension will be documented in this file
 
 ## [0.0.1] - 2023-05-15
 
-- Initial release
+- Initial release with base functionality
+
+&nbsp;

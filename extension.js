@@ -2,6 +2,9 @@ const vscode = require('vscode');
 const { optimize } = require('svgo');
 const fs = require('fs');
 
+const symbols = /[\r\n%#()<>?[\\\]^`{|}]/g;
+const quotes = { level1: '"', level2: "'" };
+
 var outputChannel;
 
 /**
@@ -17,13 +20,15 @@ function activate(context) {
 		try {
 			outputChannel.appendLine("Running optimizeInPlace...");
 
+			let path = sanitizePath(context.path);
+
 			// if not a directory
-			if(!isDirectory(context.path)) {
-				var optimizeResult = optimizeSVG(context.path, false);
+			if(!isDirectory(path)) {
+				var optimizeResult = optimizeSVG(path, false);
 				showMessage(optimizeResult.message, !optimizeResult.success);
 			}
 			else {// is a directory
-				var svgArray = getAllSVGs(context.path);
+				var svgArray = getAllSVGs(path);
 				for(let i = 0; i < svgArray.length; i++) {
 					let optimizeResult = optimizeSVG(svgArray[i], false);
 					outputChannel.appendLine(optimizeResult.outPath);
@@ -41,15 +46,17 @@ function activate(context) {
 		try {
 			outputChannel.appendLine("Running optimizeAndCopy...");
 
+			let path = sanitizePath(context.path);
+
 			// if not a directory
-			if(!isDirectory(context.path)) {
-				var optimizeResult = optimizeSVG(context.path, true);
+			if(!isDirectory(path)) {
+				var optimizeResult = optimizeSVG(path, true);
 				showMessage(optimizeResult.message, !optimizeResult.success);
 			}
 			else {// is a directory
-				var svgArray = getAllSVGs(context.path);
+				var svgArray = getAllSVGs(path);
 				for(let i = 0; i < svgArray.length; i++) {
-					let optimizeResult = optimizeSVG(svgArray[i], true, context.path);
+					let optimizeResult = optimizeSVG(svgArray[i], true, path);
 					outputChannel.appendLine(svgArray[i] + "  =>  " + optimizeResult.outPath);
 				}
 				showMessage("Optimized and copied " + svgArray.length + " files", false);
@@ -57,6 +64,39 @@ function activate(context) {
 		}catch(err) {
 			// write error to output
 			outputChannel.appendLine("optimizeAndCopy error:");
+			outputChannel.appendLine(err);
+		}
+		outputChannel.appendLine('');
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.exportSVGCSS", (context) => {
+		try {
+			outputChannel.appendLine("Running exportSVGCSS...");
+
+			let path = sanitizePath(context.path);
+
+			// if not a directory
+			if(!isDirectory(path)) {
+				var encodeResult = encodeSVGToCSS(path, true);
+				showMessage(encodeResult.message, !encodeResult.success);
+			}
+			else {// is a directory
+				var svgArray = getAllSVGs(path);
+				var encodedSVGCSSArr = [];
+				for(let i = 0; i < svgArray.length; i++) {
+					let encodeResult = encodeSVGToCSS(svgArray[i], false);
+					encodedSVGCSSArr.push({
+						"name": getFilename(svgArray[i]),
+						"css": encodeResult.result
+					});
+					outputChannel.appendLine("Encoded for CSS: " + svgArray[i]);
+				}
+				// create single file
+				let exportResult = exportCSSFile(path, encodedSVGCSSArr);
+				showMessage(exportResult.message, !exportResult.success);
+			}
+		}catch(err) {
+			// write error to output
+			outputChannel.appendLine("exportSVGCSS error:");
 			outputChannel.appendLine(err);
 		}
 		outputChannel.appendLine('');
@@ -70,16 +110,12 @@ function deactivate() {}
 
 /**
  * Recursively find all nested SVG files in a directory
- * @param {string} directoryPath - the 
- * @param {Array<string>} fileArray - 
+ * @param {string} directoryPath
+ * @param {Array<string>} fileArray
  * @returns 
  */
 function getAllSVGs(directoryPath, fileArray) {
 	try {
-		if(directoryPath.startsWith('/')) {
-			directoryPath = directoryPath.substring(1);
-		}
-
 		var files = fs.readdirSync(directoryPath);
 		fileArray = fileArray || [];
 
@@ -128,10 +164,6 @@ function isDirectory(path) {
 		return false;
 	}
 	try {
-		// if path starts with leading '/', remove
-		if(path.startsWith('/')) {
-			path = path.substring(1);
-		}
 		return fs.lstatSync(path).isDirectory();
 	}catch(err) {
 		// write error to output
@@ -139,6 +171,19 @@ function isDirectory(path) {
 		outputChannel.appendLine(err);
 	}
 	return false;
+}
+
+/**
+ * Removes the potential '/' from the beginning of the path
+ * @param {string} path - the path of a file or directory
+ * @returns 
+ */
+function sanitizePath(path) {
+	// if path starts with leading '/', remove
+	if(path.startsWith('/')) {
+		path = path.substring(1);
+	}
+	return path;
 }
 
 /**
@@ -159,6 +204,7 @@ function showMessage(text, isError) {
  * @property {boolean} success - whether the optimization was successful
  * @property {string} message - the response message
  * @property {string} outPath - the output path of the file
+ * @property {string} result - the result string of the operation
  */
 /**
  * @param {string} path - the path of the SVG
@@ -177,11 +223,6 @@ function optimizeSVG(path, copy, parentDirectory) {
 				"success": false,
 				"message": svgFile + " is not an SVG"
 			};
-		}
-
-		// if path starts with leading '/', remove
-		if(path.startsWith('/')) {
-			path = path.substring(1);
 		}
 
 		// read SVG
@@ -207,9 +248,6 @@ function optimizeSVG(path, copy, parentDirectory) {
 
 			// if parentDirectory specified
 			if(typeof parentDirectory !== "undefined" && parentDirectory != "") {
-				if(parentDirectory.startsWith('/')) {
-					parentDirectory = parentDirectory.substring(1);
-				}
 				pathArr = parentDirectory.split('/');
 			}
 			else { // inject optimized directory into path
@@ -256,14 +294,162 @@ function optimizeSVG(path, copy, parentDirectory) {
 		// write error to output
 		outputChannel.appendLine("optimize() error:");
 		outputChannel.appendLine(err);
-
-		return {
-			"success": false,
-			"message": "Error optimizing SVG. See the output for more information."
-		};
 	}
+	return {
+		"success": false,
+		"message": "Error optimizing SVG. See the output for more information."
+	};
 }
 
+/**
+ * 
+ * @param {string} path - the path of the SVG 
+ * @returns SVG string
+ */
+function getSVGString(path) {
+	try{
+		// extension check if file is SVG
+		if(!isSVG(path)) {
+			return null;
+		}
+
+		// read SVG
+		var data = fs.readFileSync(path, 'utf8');
+		return data.toString();
+	}catch(err) {
+		// write error to output
+		outputChannel.appendLine("getSVGString() error:");
+		outputChannel.appendLine(err);
+	}
+	return null;
+}
+
+/**
+ * Get the filename without an extension
+ * @param {string} path - the path of the SVG
+ * @returns the filename without an extension
+ */
+function getFilename(path) {
+	// filename with extension
+	let svgFile = path.split('/').at(-1);
+	let svgName = svgFile.split('.').at(0);
+	return svgName;
+}
+
+/**
+ * Encode the SVG for use in CSS
+ * @param {string} path - the path of the SVG
+ * @param {boolean} saveFile - whether a CSS file should be made after encoding
+ * @returns {ResponseObject}
+ */
+function encodeSVGToCSS(path, saveFile) {
+	// filename with extension
+	let svgFile = path.split('/').at(-1);
+
+	// get the contents of the SVG
+	let svgString = getSVGString(path);
+	if(svgString == null) {
+		return {
+			"success": false,
+			"message": "Error fetching SVG. See the output for more information."
+		};
+	}
+
+	// Use single quotes instead of double to avoid encoding.
+	svgString = svgString.replace(/"/g, `'`);
+
+	svgString = svgString.replace(/>\s{1,}</g, `><`);
+	svgString = svgString.replace(/\s{2,}/g, ` `);
+
+	// Using encodeURIComponent() as replacement function
+	// allows to keep result code readable
+	svgString = svgString.replace(symbols, encodeURIComponent);
+	let encodedSVGCSSString = `background-image: url(${quotes.level1}data:image/svg+xml,${svgString}${quotes.level1});`;
+
+	// if enabled, create single CSS file for the encoded SVG CSS
+	if(typeof saveFile !== "undefined" && saveFile === true) {
+		// get filename without extension
+		let svgName = getFilename(path);
+		let cssFile = svgName + ".css";
+		// get directory path
+		let pathArr = path.split('/');
+		// remove filename
+		pathArr.pop();
+		// create new CSS file
+		pathArr.push(cssFile);
+		let newPath = pathArr.join('/');
+
+		// TODO: make this better
+		// normalize
+		svgName = svgName.replaceAll(' ', '-');
+		// format as CSS class
+		let cssString = '.' + svgName + " {\n\t" + encodedSVGCSSString + "\n}";
+
+		// write file
+		fs.writeFileSync(newPath, cssString);
+
+		return {
+			"success": true,
+			"message": "SVG encoded and exported to " + cssFile
+		};
+	}//if: saveFile enabled
+
+	return {
+		"success": true,
+		"message": svgFile + " encoded for CSS",
+		"result": encodedSVGCSSString
+	};
+}
+
+/**
+ * @typedef {Object} EncodedSVGObject
+ * @property {string} name - the filename without an extension
+ * @property {string} css - the encoded CSS
+ */
+/**
+ * Compiles and saves a CSS file
+ * @param {string} directoryPath - the parent directory path
+ * @param {Array<EncodedSVGObject>} encodedSVGCSSObj - an array of encoded SVG objects
+ * @returns {ResponseObject}
+ */
+function exportCSSFile(directoryPath, encodedSVGObjArr) {
+	try {
+		let dirPathArr = directoryPath.split('/');
+		// normalize
+		let dirName = dirPathArr.at(-1).replaceAll(' ', '-');
+		let fileName = dirName + ".css";
+		dirPathArr.push(fileName);
+		let cssFilePath = dirPathArr.join('/');
+
+		// build file contents
+		let cssFileContents = "";
+		for(let i = 0; i < encodedSVGObjArr.length; i++) {
+			// TODO: make this better
+			// normalize
+			let svgName = encodedSVGObjArr[i].name.replaceAll(' ', '-');
+			// format as CSS class
+			let cssString = '.' + svgName + " {\n\t" + encodedSVGObjArr[i].css + "\n}";
+			cssFileContents += cssString + '\n';
+		}
+	
+		// write file
+		fs.writeFileSync(cssFilePath, cssFileContents);
+
+		return {
+			"success": true,
+			"message": "SVGs encoded and exported to " + fileName
+		}
+	}catch(err) {
+		// write error to output
+		outputChannel.appendLine("exportCSSFile() error:");
+		outputChannel.appendLine(err);
+	}
+
+	return {
+		"success": false,
+		"message": "Error exporting CSS file. See the output for more information."
+	}
+}
 
 module.exports = {
 	activate,

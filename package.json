@@ -1,7 +1,7 @@
 {
   "name": "svg-fairy",
   "displayName": "svg-fairy",
-  "description": "",
+  "description": "A vsce wrapper for SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
   "version": "0.0.1",
   "preview": true,
@@ -13,6 +13,8 @@
   "keywords": [
     "svg",
     "svgo",
+    "url-encoder",
+    "css",
     "development"
   ],
   "engines": {
@@ -32,6 +34,10 @@
       {
         "command": "svg-fairy.optimizeAndCopy",
         "title": "SVG optimize and copy"
+      },
+      {
+        "command": "svg-fairy.exportSVGCSS",
+        "title": "Export SVG CSS"
       }
     ],
     "menus": {
@@ -43,6 +49,10 @@
         {
           "group": "svg-fairy",
           "command": "svg-fairy.optimizeAndCopy"
+        },
+        {
+          "group": "svg-fairy",
+          "command": "svg-fairy.exportSVGCSS"
         }
       ]
     }
