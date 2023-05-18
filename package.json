@@ -1,9 +1,9 @@
 {
   "name": "svg-fairy",
-  "displayName": "svg-fairy",
-  "description": "A vsce wrapper for SVGO and Url encoder for SVG",
+  "displayName": "SVG Fairy",
+  "description": "A wrapper for SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "preview": true,
   "iconTODO": "images/icon.png",
   "repository": {
@@ -26,6 +26,27 @@
   "activationEvents": [],
   "main": "./extension.js",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "SVG Fairy",
+      "properties": {
+        "svg-fairy.optimizeDirectory": {
+          "type": "string",
+          "default": "optimized",
+          "description": "The name of the directory used with the 'SVG optimize and copy' command."
+        },
+        "svg-fairy.exportFormat": {
+          "type": "string",
+          "default": "css-custom-properties",
+          "enum": ["css-custom-properties", "css-class"],
+          "enumDescriptions": [
+            "Export SVGs as CSS custom properties (variables)",
+            "Export SVGs as CSS classes with background-image"
+          ],
+          "description": "The format of the exported SVG CSS"
+        }
+      }
+    },
     "commands": [
       {
         "command": "svg-fairy.optimizeInPlace",

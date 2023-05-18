@@ -6,6 +6,19 @@ All notable changes to the "svg-fairy" extension will be documented in this file
 
 ## [Unreleased]
 
+## [0.0.2] - 2023-05-18
+
+### Added
+- support for exporting SVG as CSS custom properties  
+- directory optimization percentage message  
+- extension configuration properties  
+  - `svg-fairy.exportFormat`  
+  - `svg-fairy.optimizeDirectory`  
+- README sections  
+
+### Changed
+- cleaned up helper functions  
+
 ## [0.0.1] - 2023-05-15
 
 - Initial release with base functionality

@@ -29,17 +29,27 @@ function activate(context) {
 			}
 			else {// is a directory
 				var svgArray = getAllSVGs(path);
+				var changePercentArr = [];
 				for(let i = 0; i < svgArray.length; i++) {
 					let optimizeResult = optimizeSVG(svgArray[i], false);
+					changePercentArr.push(optimizeResult.changePercent);
 					outputChannel.appendLine(optimizeResult.outPath);
 				}
-				showMessage("Optimized " + svgArray.length + " files", false);
+				// calculate average
+				let changeAverage = 0;
+				for(let i = 0; i < changePercentArr.length; i++) {
+					changeAverage += changePercentArr[i];
+				}
+				changeAverage /= changePercentArr.length;
+				changeAverage = Math.trunc(changeAverage);
+				showMessage("Optimized " + svgArray.length + " files, saving an average of " + changeAverage + "%", false);
 			}
 		}catch(err) {
 			// write error to output
 			outputChannel.appendLine("optimizeInPlace error:");
 			outputChannel.appendLine(err);
 		}
+		outputChannel.append("done!");
 		outputChannel.appendLine('');
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.optimizeAndCopy", (context) => {
@@ -55,22 +65,32 @@ function activate(context) {
 			}
 			else {// is a directory
 				var svgArray = getAllSVGs(path);
+				var changePercentArr = [];
 				for(let i = 0; i < svgArray.length; i++) {
 					let optimizeResult = optimizeSVG(svgArray[i], true, path);
+					changePercentArr.push(optimizeResult.changePercent);
 					outputChannel.appendLine(svgArray[i] + "  =>  " + optimizeResult.outPath);
 				}
-				showMessage("Optimized and copied " + svgArray.length + " files", false);
+				// calculate average
+				let changeAverage = 0;
+				for(let i = 0; i < changePercentArr.length; i++) {
+					changeAverage += changePercentArr[i];
+				}
+				changeAverage /= changePercentArr.length;
+				changeAverage = Math.trunc(changeAverage);
+				showMessage("Optimized and copied " + svgArray.length + " files, saving an average of " + changeAverage + "%", false);
 			}
 		}catch(err) {
 			// write error to output
 			outputChannel.appendLine("optimizeAndCopy error:");
 			outputChannel.appendLine(err);
 		}
+		outputChannel.append("done!");
 		outputChannel.appendLine('');
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.exportSVGCSS", (context) => {
 		try {
-			outputChannel.appendLine("Running exportSVGCSS...");
+			outputChannel.appendLine("Running Export SVG CSS...");
 
 			let path = sanitizePath(context.path);
 
@@ -80,8 +100,8 @@ function activate(context) {
 				showMessage(encodeResult.message, !encodeResult.success);
 			}
 			else {// is a directory
-				var svgArray = getAllSVGs(path);
-				var encodedSVGCSSArr = [];
+				let svgArray = getAllSVGs(path);
+				let encodedSVGCSSArr = [];
 				for(let i = 0; i < svgArray.length; i++) {
 					let encodeResult = encodeSVGToCSS(svgArray[i], false);
 					encodedSVGCSSArr.push({
@@ -99,6 +119,7 @@ function activate(context) {
 			outputChannel.appendLine("exportSVGCSS error:");
 			outputChannel.appendLine(err);
 		}
+		outputChannel.append("done!");
 		outputChannel.appendLine('');
 	}));
 
@@ -121,7 +142,7 @@ function getAllSVGs(directoryPath, fileArray) {
 
 		for(let i = 0; i < files.length; i++) {
 			let file = directoryPath + '/' + files[i];
-			if (fs.statSync(file).isDirectory()) {
+			if (isDirectory(file)) {
 				fileArray = getAllSVGs(file, fileArray);
 			}else if(isSVG(file)) {
 				fileArray.push(file);
@@ -205,11 +226,12 @@ function showMessage(text, isError) {
  * @property {string} message - the response message
  * @property {string} outPath - the output path of the file
  * @property {string} result - the result string of the operation
+ * @property {number} changePercent - the percentage of change after optimization
  */
 /**
  * @param {string} path - the path of the SVG
  * @param {boolean} copy - if the output file should be copied to a new directory
- * @param {string} parentDirectory - the parent directory for the "optimized" directory
+ * @param {string} parentDirectory - the parent directory for the copied SVGs - references `svg-fairy.optimizeDirectory` configuration
  * @returns {ResponseObject}
  */
 function optimizeSVG(path, copy, parentDirectory) {
@@ -226,8 +248,7 @@ function optimizeSVG(path, copy, parentDirectory) {
 		}
 
 		// read SVG
-		var data = fs.readFileSync(path, 'utf8');
-		var svgString = data.toString();
+		var svgString = getSVGString(path);
 
 		// optimize
 		var result = optimize(svgString, {
@@ -240,9 +261,7 @@ function optimizeSVG(path, copy, parentDirectory) {
 
 		// if copy enabled, copy optimized SVG to new directory
 		if(copy) {
-
-			// TODO: make optimized folder a variable
-			let optimizedDirectory = "optimized";
+			let optimizedDirectory = vscode.workspace.getConfiguration('svg-fairy').get('optimizeDirectory');
 
 			let pathArr = path.split('/');
 
@@ -276,9 +295,10 @@ function optimizeSVG(path, copy, parentDirectory) {
 		}
 
 		var message = "";
+		var changePercent = 0;
 		if(svgString.length > optimizedSvgString.length) {
-			var changePercent = Math.trunc(((svgString.length - optimizedSvgString.length) / svgString.length) * 100);
-			message = svgFile + " was reduced by " + changePercent + "%";
+			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
+			message = svgFile + " was reduced by " + Math.trunc(changePercent) + "%";
 		//}else if(svgString.length < optimizedSvgString.length) {
 		//	message = svgFile + " increased by XX%";
 		}else {
@@ -288,7 +308,8 @@ function optimizeSVG(path, copy, parentDirectory) {
 		return {
 			"success": true,
 			"message": message,
-			"outPath": outPath
+			"outPath": outPath,
+			"changePercent": changePercent
 		};
 	}catch(err) {
 		// write error to output
@@ -312,7 +333,6 @@ function getSVGString(path) {
 		if(!isSVG(path)) {
 			return null;
 		}
-
 		// read SVG
 		var data = fs.readFileSync(path, 'utf8');
 		return data.toString();
@@ -364,7 +384,7 @@ function encodeSVGToCSS(path, saveFile) {
 	// Using encodeURIComponent() as replacement function
 	// allows to keep result code readable
 	svgString = svgString.replace(symbols, encodeURIComponent);
-	let encodedSVGCSSString = `background-image: url(${quotes.level1}data:image/svg+xml,${svgString}${quotes.level1});`;
+	let encodedCSSString = `url(${quotes.level1}data:image/svg+xml,${svgString}${quotes.level1});`;
 
 	// if enabled, create single CSS file for the encoded SVG CSS
 	if(typeof saveFile !== "undefined" && saveFile === true) {
@@ -382,11 +402,12 @@ function encodeSVGToCSS(path, saveFile) {
 		// TODO: make this better
 		// normalize
 		svgName = svgName.replaceAll(' ', '-');
-		// format as CSS class
-		let cssString = '.' + svgName + " {\n\t" + encodedSVGCSSString + "\n}";
+
+		// build file contents
+		let cssFileContents = getCSSString(svgName, encodedCSSString, true);
 
 		// write file
-		fs.writeFileSync(newPath, cssString);
+		fs.writeFileSync(newPath, cssFileContents);
 
 		return {
 			"success": true,
@@ -397,7 +418,7 @@ function encodeSVGToCSS(path, saveFile) {
 	return {
 		"success": true,
 		"message": svgFile + " encoded for CSS",
-		"result": encodedSVGCSSString
+		"result": encodedCSSString
 	};
 }
 
@@ -422,14 +443,21 @@ function exportCSSFile(directoryPath, encodedSVGObjArr) {
 		let cssFilePath = dirPathArr.join('/');
 
 		// build file contents
+		let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
 		let cssFileContents = "";
+		if(exportFormat == "css-custom-properties") {
+			cssFileContents += ":root {\n";
+		}
+
 		for(let i = 0; i < encodedSVGObjArr.length; i++) {
 			// TODO: make this better
 			// normalize
 			let svgName = encodedSVGObjArr[i].name.replaceAll(' ', '-');
-			// format as CSS class
-			let cssString = '.' + svgName + " {\n\t" + encodedSVGObjArr[i].css + "\n}";
-			cssFileContents += cssString + '\n';
+			cssFileContents += getCSSString(svgName, encodedSVGObjArr[i].css, false) + '\n';
+		}
+
+		if(exportFormat == "css-custom-properties") {
+			cssFileContents += "}";
 		}
 	
 		// write file
@@ -449,6 +477,35 @@ function exportCSSFile(directoryPath, encodedSVGObjArr) {
 		"success": false,
 		"message": "Error exporting CSS file. See the output for more information."
 	}
+}
+
+/**
+ * Build the CSS-ready string
+ * @param {string} name - the filename without an extension
+ * @param {string} cssString - the encoded CSS string
+ * @param {boolean} isSingle - if the file should be wrapped; only applies to the export property `css-custom-property`
+ * @returns the formatted CSS string
+ */
+function getCSSString(name, cssString, isSingle) {
+	let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
+	let cssStringFmt = "";
+	// css-custom-property header
+	if(typeof isSingle !== "undefined" && isSingle == true && exportFormat == "css-custom-properties") {
+		cssStringFmt += ":root {\n"
+	}
+	// format as CSS variable
+	if(exportFormat == "css-custom-properties") {
+		cssStringFmt += "\t--" + name + ":\n\t\t" + cssString + "\n";
+	}
+	else // format as CSS class
+	if(exportFormat == "css-class") {
+		cssStringFmt += '.' + name + " {\n\tbackground-image: " + cssString + "\n}";
+	}
+	// css-custom-property footer
+	if(typeof isSingle !== "undefined" && isSingle == true && exportFormat == "css-custom-properties") {
+		cssStringFmt += "}"
+	}
+	return cssStringFmt;
 }
 
 module.exports = {
