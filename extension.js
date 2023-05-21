@@ -16,24 +16,30 @@ function activate(context) {
 	outputChannel = vscode.window.createOutputChannel('SVG Fairy');
 
 	// register commands
+	// Optimize In Place
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.optimizeInPlace", (context) => {
 		try {
-			outputChannel.appendLine("Running optimizeInPlace...");
+			outputChannel.appendLine("Running Optimize In Place...");
 
 			let path = sanitizePath(context.path);
 
 			// if not a directory
 			if(!isDirectory(path)) {
-				var optimizeResult = optimizeSVG(path, false);
-				showMessage(optimizeResult.message, !optimizeResult.success);
+				let optimizedResult = optimizeSVG(path);
+				addResultChannelMessage(path, optimizedResult.changePercent, !optimizedResult.success);
+				showMessage(optimizedResult.message, !optimizedResult.success);
 			}
 			else {// is a directory
-				var svgArray = getAllSVGs(path);
-				var changePercentArr = [];
-				for(let i = 0; i < svgArray.length; i++) {
-					let optimizeResult = optimizeSVG(svgArray[i], false);
-					changePercentArr.push(optimizeResult.changePercent);
-					outputChannel.appendLine(optimizeResult.outPath);
+				let svgPathArr = getAllSVGs(path);
+				let changePercentArr = [];
+				if(svgPathArr.length == 0) {
+					showMessage("No SVG files in the specified directory", true);
+					throw "";
+				}
+				for(let i = 0; i < svgPathArr.length; i++) {
+					let optimizedResult = optimizeSVG(svgPathArr[i]);
+					changePercentArr.push(optimizedResult.changePercent);
+					addResultChannelMessage(svgPathArr[i], optimizedResult.changePercent, !optimizedResult.success);
 				}
 				// calculate average
 				let changeAverage = 0;
@@ -42,34 +48,51 @@ function activate(context) {
 				}
 				changeAverage /= changePercentArr.length;
 				changeAverage = Math.trunc(changeAverage);
-				showMessage("Optimized " + svgArray.length + " files, saving an average of " + changeAverage + "%", false);
+				showMessage("Optimized " + svgPathArr.length + " files, saving an average of " + changeAverage + "%", false);
 			}
 		}catch(err) {
 			// write error to output
 			outputChannel.appendLine("optimizeInPlace error:");
 			outputChannel.appendLine(err);
 		}
-		outputChannel.append("done!");
+		outputChannel.appendLine("Done!");
 		outputChannel.appendLine('');
 	}));
+
+	// Optimize and Copy
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.optimizeAndCopy", (context) => {
 		try {
-			outputChannel.appendLine("Running optimizeAndCopy...");
+			outputChannel.appendLine("Running Optimize and Copy...");
 
 			let path = sanitizePath(context.path);
 
 			// if not a directory
 			if(!isDirectory(path)) {
-				var optimizeResult = optimizeSVG(path, true);
-				showMessage(optimizeResult.message, !optimizeResult.success);
+				
+				// exit if not an SVG
+				if(!isSVG(path)) {
+					showMessage("The specified file is not an SVG", true);
+					throw "";
+				}
+
+				let fullOptimizedDirectory = getOptimizedDirectory(path, true);
+				let optimizedResult = optimizeSVG(path, fullOptimizedDirectory);
+				addResultChannelMessage(fullOptimizedDirectory, optimizedResult.changePercent, !optimizedResult.success);
+				showMessage(optimizedResult.message, !optimizedResult.success);
 			}
 			else {// is a directory
-				var svgArray = getAllSVGs(path);
-				var changePercentArr = [];
-				for(let i = 0; i < svgArray.length; i++) {
-					let optimizeResult = optimizeSVG(svgArray[i], true, path);
-					changePercentArr.push(optimizeResult.changePercent);
-					outputChannel.appendLine(svgArray[i] + "  =>  " + optimizeResult.outPath);
+				let svgPathArr = getAllSVGs(path);
+				let changePercentArr = [];
+				if(svgPathArr.length == 0) {
+					showMessage("No SVG files in the specified directory", true);
+					throw "";
+				}
+				let optimizedDirectory = getOptimizedDirectory(path, false);
+				for(let i = 0; i < svgPathArr.length; i++) {
+					let fullOptimizedDirectory = optimizedDirectory + '/' + getFilename(svgPathArr[i], true);
+					let optimizedResult = optimizeSVG(svgPathArr[i], fullOptimizedDirectory);
+					changePercentArr.push(optimizedResult.changePercent);
+					addResultChannelMessage(fullOptimizedDirectory, optimizedResult.changePercent, !optimizedResult.success);
 				}
 				// calculate average
 				let changeAverage = 0;
@@ -78,16 +101,18 @@ function activate(context) {
 				}
 				changeAverage /= changePercentArr.length;
 				changeAverage = Math.trunc(changeAverage);
-				showMessage("Optimized and copied " + svgArray.length + " files, saving an average of " + changeAverage + "%", false);
+				showMessage("Optimized and copied " + svgPathArr.length + " files, saving an average of " + changeAverage + "%", false);
 			}
 		}catch(err) {
 			// write error to output
 			outputChannel.appendLine("optimizeAndCopy error:");
 			outputChannel.appendLine(err);
 		}
-		outputChannel.append("done!");
+		outputChannel.appendLine("Done!");
 		outputChannel.appendLine('');
 	}));
+
+	// Export SVG CSS
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.exportSVGCSS", (context) => {
 		try {
 			outputChannel.appendLine("Running Export SVG CSS...");
@@ -96,7 +121,7 @@ function activate(context) {
 
 			// if not a directory
 			if(!isDirectory(path)) {
-				var encodeResult = encodeSVGToCSS(path, true);
+				let encodeResult = encodeSVGToCSS(path, true);
 				showMessage(encodeResult.message, !encodeResult.success);
 			}
 			else {// is a directory
@@ -119,7 +144,7 @@ function activate(context) {
 			outputChannel.appendLine("exportSVGCSS error:");
 			outputChannel.appendLine(err);
 		}
-		outputChannel.append("done!");
+		outputChannel.appendLine("Done!");
 		outputChannel.appendLine('');
 	}));
 
@@ -129,15 +154,120 @@ function activate(context) {
 // This method is called when your extension is deactivated
 function deactivate() {}
 
+module.exports = {
+	activate,
+	deactivate
+}
+
+
+// #region Message Helpers
+
 /**
- * Recursively find all nested SVG files in a directory
+ * Display a vscode.window message toast
+ * @param {string} text - the message text
+ * @param {boolean} isError - if the message should be displayed as an error
+ */
+function showMessage(text, isError) {
+	if(!isError) {
+		vscode.window.showInformationMessage(text);
+	}else {
+		vscode.window.showErrorMessage(text);
+	}
+}
+
+/**
+ * Format SVG optimization and write to output channel.
+ * @param {string} path - the file path
+ * @param {number} changePercent - the file change percentage
+ * @param {boolean} isError - whether to display as an error
+ */
+function addResultChannelMessage(path, changePercent, isError) {
+	if(!isError) {
+		outputChannel.appendLine("Saved: " + Math.trunc(changePercent) + "%\t" + path);
+	}else {
+		outputChannel.appendLine("Error: " + path);
+	}
+}
+
+// #endregion
+
+// #region File/Directory Helpers
+/**
+ * @param {string} path - the path of a directory or file
+ * @returns {boolean} if the path is a directory
+ */
+function isDirectory(path) {
+	if(typeof path === "undefined" || path == '') {
+		return false;
+	}
+	try {
+		return fs.lstatSync(path).isDirectory();
+	}catch(err) {
+		// write error to output
+		outputChannel.appendLine("isDirectory() error:");
+		outputChannel.appendLine(err);
+	}
+	return false;
+}
+
+/**
+ * Shallow SVG extension validation
+ * @param {string} path - the path of the file
+ * @returns {boolean} whether the file is an SVG
+ */
+function isSVG(path) {
+	if(typeof path === "undefined" || path == '') {
+		return false;
+	}
+	let fileName = path.split('/').at(-1);
+	let fileExtension = fileName.split(".").at(1);
+	if(typeof fileExtension === "undefined" || fileExtension == '') {
+		return false;
+	}
+	if(fileExtension.toUpperCase() === "SVG") {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Get the filename without an extension
+ * @param {string} path - the path of the SVG
+ * @param {boolean} includeExtension - whether result should include the extension
+ * @returns the filename without an extension
+ */
+function getFilename(path, includeExtension) {
+	// filename with extension
+	let svgFile = path.split('/').at(-1);
+	if(typeof includeExtension !== "undefined" && includeExtension === true) {
+		return svgFile;
+	}
+	let svgName = svgFile.split('.').at(0);
+	return svgName;
+}
+
+/**
+ * Removes the potential '/' from the beginning of the path
+ * @param {string} path - the path of a file or directory
+ * @returns {string} the santized path
+ */
+function sanitizePath(path) {
+	// if path starts with leading '/', remove
+	if(path.startsWith('/')) {
+		path = path.substring(1);
+	}
+	return path;
+}
+
+/**
+ * Recursively collect all SVG files from a directory
  * @param {string} directoryPath
  * @param {Array<string>} fileArray
- * @returns 
+ * @returns {string[]} an array of SVG files
  */
 function getAllSVGs(directoryPath, fileArray) {
 	try {
-		var files = fs.readdirSync(directoryPath);
+		let files = fs.readdirSync(directoryPath);
 		fileArray = fileArray || [];
 
 		for(let i = 0; i < files.length; i++) {
@@ -157,171 +287,42 @@ function getAllSVGs(directoryPath, fileArray) {
 }
 
 /**
- * Shallow SVG extension validation
- * @param {string} path
- */
-function isSVG(path) {
-	if(typeof path === "undefined" || path == "") {
-		return false;
-	}
-	var fileName = path.split("/").at(-1);
-	var fileExtension = fileName.split(".").at(1);
-	if(typeof fileExtension === "undefined" || fileExtension == "") {
-		return false;
-	}
-	if(fileExtension.toUpperCase() === "SVG") {
-		return true;
-	}
-	return false;
-}
-
-/**
- * 
- * @param {string} path - the path of the directory to be tested
- * @returns {boolean}
- */
-function isDirectory(path) {
-	if(typeof path === "undefined" || path == "") {
-		return false;
-	}
-	try {
-		return fs.lstatSync(path).isDirectory();
-	}catch(err) {
-		// write error to output
-		outputChannel.appendLine("isDirectory() error:");
-		outputChannel.appendLine(err);
-	}
-	return false;
-}
-
-/**
- * Removes the potential '/' from the beginning of the path
+ * Get the optimized directory path for a given path. Creates the optimized directory if it doesn't exist.
  * @param {string} path - the path of a file or directory
- * @returns 
+ * @param {boolean} includeFile - whether to include the file
+ * @returns {string} the original path including the optimized directory
  */
-function sanitizePath(path) {
-	// if path starts with leading '/', remove
-	if(path.startsWith('/')) {
-		path = path.substring(1);
+function getOptimizedDirectory(path, includeFile) {
+	// if optimized directory doesn't exist, create it
+	let optimizedDirectory = vscode.workspace.getConfiguration("svg-fairy").get("optimizeDirectory");
+	let fullOptimizedDirectory = path + '/' + optimizedDirectory;
+
+	// if path is a not directory
+	let svgFilename = '';
+	if(!isDirectory(path)) {
+		let pathArr = path.split('/');
+		svgFilename = pathArr.pop();
+		pathArr.push(optimizedDirectory);
+		//pathArr.push(svgFilename);
+		fullOptimizedDirectory = pathArr.join('/');
 	}
-	return path;
-}
 
-/**
- * Display a vscode.window message toast
- * @param {string} text - the message text
- * @param {boolean} isError - if the message should be displayed as an error
- */
-function showMessage(text, isError) {
-	if(!isError) {
-		vscode.window.showInformationMessage(text);
-	}else {
-		vscode.window.showErrorMessage(text);
+	// create directory if it doesn't exist
+	if(!fs.existsSync(fullOptimizedDirectory)) {
+		fs.mkdirSync(fullOptimizedDirectory);
 	}
-}
 
-/**
- * @typedef {Object} ResponseObject
- * @property {boolean} success - whether the optimization was successful
- * @property {string} message - the response message
- * @property {string} outPath - the output path of the file
- * @property {string} result - the result string of the operation
- * @property {number} changePercent - the percentage of change after optimization
- */
-/**
- * @param {string} path - the path of the SVG
- * @param {boolean} copy - if the output file should be copied to a new directory
- * @param {string} parentDirectory - the parent directory for the copied SVGs - references `svg-fairy.optimizeDirectory` configuration
- * @returns {ResponseObject}
- */
-function optimizeSVG(path, copy, parentDirectory) {
-	try {
-		// filename with extension
-		var svgFile = path.split("/").at(-1);
-
-		// extension check if file is SVG
-		if(!isSVG(path)) {
-			return {
-				"success": false,
-				"message": svgFile + " is not an SVG"
-			};
-		}
-
-		// read SVG
-		var svgString = getSVGString(path);
-
-		// optimize
-		var result = optimize(svgString, {
-			path: path,
-			multipass: true
-		});
-		const optimizedSvgString = result.data;
-
-		let outPath = path;
-
-		// if copy enabled, copy optimized SVG to new directory
-		if(copy) {
-			let optimizedDirectory = vscode.workspace.getConfiguration('svg-fairy').get('optimizeDirectory');
-
-			let pathArr = path.split('/');
-
-			// if parentDirectory specified
-			if(typeof parentDirectory !== "undefined" && parentDirectory != "") {
-				pathArr = parentDirectory.split('/');
-			}
-			else { // inject optimized directory into path
-				// remove filename
-				pathArr.pop();
-			}
-			pathArr.push(optimizedDirectory);
-			// update path
-			path = pathArr.join('/');
-
-			// build full file path
-			pathArr.push(svgFile);
-			fullPath = pathArr.join('/');
-			// save new outPath
-			outPath = fullPath;
-
-			// if optimized directory doesn't exist, create it
-			if(!fs.existsSync(path)) {
-				fs.mkdirSync(path);
-			}
-			// write file to new directory
-			fs.writeFileSync(fullPath, optimizedSvgString);
-		}
-		else { // else overwrite file
-			fs.writeFileSync(path, optimizedSvgString);
-		}
-
-		var message = "";
-		var changePercent = 0;
-		if(svgString.length > optimizedSvgString.length) {
-			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
-			message = svgFile + " was reduced by " + Math.trunc(changePercent) + "%";
-		//}else if(svgString.length < optimizedSvgString.length) {
-		//	message = svgFile + " increased by XX%";
-		}else {
-			message = svgFile + " was optimized, but had no filesize changes";
-		}
-
-		return {
-			"success": true,
-			"message": message,
-			"outPath": outPath,
-			"changePercent": changePercent
-		};
-	}catch(err) {
-		// write error to output
-		outputChannel.appendLine("optimize() error:");
-		outputChannel.appendLine(err);
+	// if enabled, append file to optimizedDirectory
+	if(typeof includeFile !== "undefined" && includeFile === true) {
+		return fullOptimizedDirectory + '/' + svgFilename;
 	}
-	return {
-		"success": false,
-		"message": "Error optimizing SVG. See the output for more information."
-	};
-}
 
+	// else return directory
+	return fullOptimizedDirectory;
+}
+// #endregion
+
+// #region SVG Helpers
 /**
  * 
  * @param {string} path - the path of the SVG 
@@ -334,7 +335,7 @@ function getSVGString(path) {
 			return null;
 		}
 		// read SVG
-		var data = fs.readFileSync(path, 'utf8');
+		let data = fs.readFileSync(path, 'utf8');
 		return data.toString();
 	}catch(err) {
 		// write error to output
@@ -345,17 +346,78 @@ function getSVGString(path) {
 }
 
 /**
- * Get the filename without an extension
- * @param {string} path - the path of the SVG
- * @returns the filename without an extension
+ * @typedef {Object} ResponseObject
+ * @property {boolean} success - whether the optimization was successful
+ * @property {string} message - the response message
+ * @property {number} changePercent - the percentage of change after optimization
  */
-function getFilename(path) {
-	// filename with extension
-	let svgFile = path.split('/').at(-1);
-	let svgName = svgFile.split('.').at(0);
-	return svgName;
-}
+/**
+ * @param {string} path - the path of the SVG
+ * @param {boolean} copy - if the output file should be copied to a new directory
+ * @param {string} parentDirectory - the parent directory for the copied SVGs - references `svg-fairy.optimizeDirectory` configuration
+ * @returns {ResponseObject}
+ */
+function optimizeSVG(inPath, outPath) {
+	try {
+		// filename with extension
+		let svgFilename = getFilename(inPath, true);
 
+		// extension check if file is SVG
+		if(!isSVG(inPath)) {
+			return {
+				"success": false,
+				"message": svgFilename + " is not an SVG"
+			};
+		}
+
+		// read SVG
+		let svgString = getSVGString(inPath);
+
+		// optimize
+		let result = optimize(svgString, {
+			path: inPath,
+			multipass: true
+		});
+		const optimizedSvgString = result.data;
+
+		// if defined, write result to outPath
+		if(typeof outPath !== "undefined" && outPath != '') {
+			fs.writeFileSync(outPath, optimizedSvgString);
+		}
+		else { // else, overwrite
+			fs.writeFileSync(inPath, optimizedSvgString);
+		}
+
+		let message = '';
+		let changePercent = 0;
+		if(svgString.length > optimizedSvgString.length) {
+			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
+			message = svgFilename + " was reduced by " + Math.trunc(changePercent) + "%";
+		}else if(svgString.length < optimizedSvgString.length) {
+			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
+			message = svgFilename + " was increased by " + Math.trunc(changePercent) + "%";
+		}else {
+			message = svgFilename + " was optimized, but had no filesize changes";
+		}
+
+		return {
+			"success": true,
+			"message": message,
+			"changePercent": changePercent
+		};
+	}catch(err) {
+		// write error to output
+		outputChannel.appendLine("optimize() error:");
+		outputChannel.appendLine(err);
+	}
+	return {
+		"success": false,
+		"message": "Error optimizing SVG. See the output for more information."
+	};
+}
+// #endregion
+
+// #region CSS Helpers
 /**
  * Encode the SVG for use in CSS
  * @param {string} path - the path of the SVG
@@ -444,7 +506,7 @@ function exportCSSFile(directoryPath, encodedSVGObjArr) {
 
 		// build file contents
 		let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
-		let cssFileContents = "";
+		let cssFileContents = '';
 		if(exportFormat == "css-custom-properties") {
 			cssFileContents += ":root {\n";
 		}
@@ -488,7 +550,7 @@ function exportCSSFile(directoryPath, encodedSVGObjArr) {
  */
 function getCSSString(name, cssString, isSingle) {
 	let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
-	let cssStringFmt = "";
+	let cssStringFmt = '';
 	// css-custom-property header
 	if(typeof isSingle !== "undefined" && isSingle == true && exportFormat == "css-custom-properties") {
 		cssStringFmt += ":root {\n"
@@ -507,8 +569,4 @@ function getCSSString(name, cssString, isSingle) {
 	}
 	return cssStringFmt;
 }
-
-module.exports = {
-	activate,
-	deactivate
-}
+// #endregion
