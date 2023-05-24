@@ -1,9 +1,9 @@
 {
   "name": "svg-fairy",
   "displayName": "SVG Fairy",
-  "description": "A wrapper for SVGO and Url encoder for SVG",
+  "description": "A vscode extension wrapping SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "preview": true,
   "iconTODO": "images/icon.png",
   "repository": {

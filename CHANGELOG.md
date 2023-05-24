@@ -6,6 +6,11 @@ All notable changes to the "svg-fairy" extension will be documented in this file
 
 ## [Unreleased]
 
+## [0.0.4] - 2023-05-23
+
+### Changed
+- refactored CSS export logic  
+
 ## [0.0.3] - 2023-05-21
 
 ### Changed
