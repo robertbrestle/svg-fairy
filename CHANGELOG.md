@@ -6,6 +6,15 @@ All notable changes to the "svg-fairy" extension will be documented in this file
 
 ## [Unreleased]
 
+## [0.0.5] - 2023-05-25
+
+### Added
+- extension configuration properties  
+  - `svg-fairy.externalQuotesValue`  
+  - `svg-fairy.svgEncoding`  
+- external messages file with new `getMessage` function  
+  - this should make localization easier in the future  
+
 ## [0.0.4] - 2023-05-23
 
 ### Changed

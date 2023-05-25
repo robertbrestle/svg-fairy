@@ -1,9 +1,9 @@
 {
   "name": "svg-fairy",
   "displayName": "SVG Fairy",
-  "description": "A vscode extension wrapping SVGO and Url encoder for SVG",
+  "description": "A convenient wrapper for both SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "preview": true,
   "iconTODO": "images/icon.png",
   "repository": {
@@ -44,6 +44,24 @@
             "Export SVGs as CSS classes with background-image"
           ],
           "description": "The format of the exported SVG CSS"
+        },
+        "svg-fairy.externalQuotesValue": {
+          "type": "string",
+          "default": "double",
+          "enum": [
+            "double",
+            "single"
+          ],
+          "enumDescriptions": [
+            "Double quotes outside, single quotes inside",
+            "Single quotes outside, double quotes inside"
+          ],
+          "description": "The external quote value which surrounds the encoded SVG in CSS."
+        },
+        "svg-fairy.svgEncoding": {
+          "type": "string",
+          "default": "utf8",
+          "description": "The encoding used for reading SVG file contents."
         }
       }
     },

@@ -1,6 +1,7 @@
-const vscode = require('vscode');
-const { optimize } = require('svgo');
-const fs = require('fs');
+const vscode = require("vscode");
+const { optimize } = require("svgo");
+const fs = require("fs");
+const messages = require("./messages.json");
 
 const symbols = /[\r\n%#()<>?[\\\]^`{|}]/g;
 const quotes = { level1: '"', level2: "'" };
@@ -13,13 +14,13 @@ var outputChannel;
 function activate(context) {
 
 	// create output channel
-	outputChannel = vscode.window.createOutputChannel('SVG Fairy');
+	outputChannel = vscode.window.createOutputChannel("SVG Fairy");
 
 	// register commands
 	// Optimize In Place
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.optimizeInPlace", (context) => {
 		try {
-			outputChannel.appendLine("Running Optimize In Place...");
+			outputChannel.appendLine(getMessage("START_OPTIMIZE_IN_PLACE"));
 
 			let path = sanitizePath(context.path);
 
@@ -28,8 +29,9 @@ function activate(context) {
 
 				// exit if not an SVG
 				if(!isSVG(path)) {
-					showMessage("The specified file is not an SVG", true);
-					throw "The specified file is not an SVG\n" + path;
+					let filename = getFilename(path, true);
+					let message = getMessage("ERROR_FILE_NOT_SVG", [filename]);
+					throw message;
 				}
 
 				let optimizedResult = optimizeSVG(path);
@@ -42,8 +44,9 @@ function activate(context) {
 
 				// if no SVGs, return error
 				if(svgPathArr.length == 0) {
-					showMessage("No SVG files in the specified directory", true);
-					throw "No SVG files in the specified directory\n" + path;
+					let dirname = getFilename(path, false);
+					let message = getMessage("ERROR_NO_SVG_FOUND", [dirname]);
+					throw message;
 				}
 
 				// optimize SVGs
@@ -60,21 +63,24 @@ function activate(context) {
 				}
 				changeAverage /= changePercentArr.length;
 				changeAverage = Math.trunc(changeAverage);
-				showMessage("Optimized " + svgPathArr.length + " files, saving an average of " + changeAverage + "%", false);
+				
+				showMessage(getMessage("SUCCESS_OPTIMIZE_IN_PLACE", [svgPathArr.length, changeAverage]));
 			}
 		}catch(err) {
 			// write error to output
-			outputChannel.appendLine("optimizeInPlace error:");
+			outputChannel.appendLine(getMessage("ERROR_OPTIMIZE_IN_PLACE"));
 			outputChannel.appendLine(err);
+			// show error message toast
+			showMessage(err, true);
 		}
-		outputChannel.appendLine("Done!");
+		outputChannel.appendLine(getMessage("ACTION_COMPLETE"));
 		outputChannel.appendLine('');
 	}));
 
 	// Optimize and Copy
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.optimizeAndCopy", (context) => {
 		try {
-			outputChannel.appendLine("Running Optimize and Copy...");
+			outputChannel.appendLine(getMessage("START_OPTIMIZE_COPY"));
 
 			let path = sanitizePath(context.path);
 
@@ -83,8 +89,9 @@ function activate(context) {
 				
 				// exit if not an SVG
 				if(!isSVG(path)) {
-					showMessage("The specified file is not an SVG", true);
-					throw "The specified file is not an SVG\n" + path;
+					let filename = getFilename(path, true);
+					let message = getMessage("ERROR_FILE_NOT_SVG", [filename]);
+					throw message;
 				}
 
 				let fullOptimizedDirectory = getOptimizedDirectory(path, true);
@@ -98,8 +105,9 @@ function activate(context) {
 
 				// if no SVGs, return error
 				if(svgPathArr.length == 0) {
-					showMessage("No SVG files in the specified directory", true);
-					throw "No SVG files in the specified directory\n" + path;
+					let dirname = getFilename(path, false);
+					let message = getMessage("ERROR_NO_SVG_FOUND", [dirname]);
+					throw message;
 				}
 
 				let optimizedDirectory = getOptimizedDirectory(path, false);
@@ -117,21 +125,24 @@ function activate(context) {
 				}
 				changeAverage /= changePercentArr.length;
 				changeAverage = Math.trunc(changeAverage);
-				showMessage("Optimized and copied " + svgPathArr.length + " files, saving an average of " + changeAverage + "%", false);
+
+				showMessage(getMessage("SUCCESS_OPTIMIZE_COPY", [svgPathArr.length, changeAverage]));
 			}
 		}catch(err) {
 			// write error to output
-			outputChannel.appendLine("optimizeAndCopy error:");
+			outputChannel.appendLine(getMessage("ERROR_OPTIMIZE_COPY"));
 			outputChannel.appendLine(err);
+			// show error message toast
+			showMessage(err, true);
 		}
-		outputChannel.appendLine("Done!");
+		outputChannel.appendLine(getMessage("ACTION_COMPLETE"));
 		outputChannel.appendLine('');
 	}));
 
 	// Export SVG CSS
 	context.subscriptions.push(vscode.commands.registerCommand("svg-fairy.exportSVGCSS", (context) => {
 		try {
-			outputChannel.appendLine("Running Export SVG CSS...");
+			outputChannel.appendLine(getMessage("START_EXPORT_SVG_CSS"));
 
 			let path = sanitizePath(context.path);
 
@@ -140,33 +151,40 @@ function activate(context) {
 
 				// exit if not an SVG
 				if(!isSVG(path)) {
-					showMessage("The specified file is not an SVG", true);
-					throw "The specified file is not an SVG\n" + path;
+					let filename = getFilename(path, true);
+					let message = getMessage("ERROR_FILE_NOT_SVG", [filename]);
+					throw message;
 				}
 
 				// encode SVG to CSS
 				let encodeResult = encodeSVGToCSS(path);
+				outputChannel.appendLine(getMessage("SUCCESS_ENCODE_SVG_CSS", [path]));
 
 				// build CSS export path
 				let cssPath = getCSSFilename(path);
 
 				// build and save file
 				let exportResult = exportCSSFile([encodeResult], cssPath);
-				showMessage(exportResult.message, !exportResult.success);
+				if(exportResult.success === true) {
+					showMessage(getMessage("SUCCESS_EXPORT_SVG_CSS", [getFilename(cssPath, true)]));
+				}else {
+					throw exportResult.message;
+				}
 			}
 			else {// is a directory
 				let svgPathArr = getAllSVGs(path);
 
 				// if no SVGs, return error
 				if(svgPathArr.length == 0) {
-					showMessage("No SVG files in the specified directory", true);
-					throw "No SVG files in the specified directory\n" + path;
+					let dirname = getFilename(path, false);
+					let message = getMessage("ERROR_NO_SVG_FOUND", [dirname]);
+					throw message;
 				}
 
 				let encodeResultArr = [];
 				for(let i = 0; i < svgPathArr.length; i++) {
 					encodeResultArr.push(encodeSVGToCSS(svgPathArr[i]));
-					outputChannel.appendLine("Encoded for CSS: " + svgPathArr[i]);
+					outputChannel.appendLine(getMessage("SUCCESS_ENCODE_SVG_CSS", [svgPathArr[i]]));
 				}
 
 				// build CSS export path
@@ -174,18 +192,24 @@ function activate(context) {
 
 				// create single file
 				let exportResult = exportCSSFile(encodeResultArr, cssPath);
-				showMessage(exportResult.message, !exportResult.success);
+				if(exportResult.success === true) {
+					showMessage(getMessage("SUCCESS_EXPORT_SVG_CSS", [getFilename(cssPath, true)]));
+				}else {
+					throw exportResult.message;
+				}
 			}
 		}catch(err) {
 			// write error to output
-			outputChannel.appendLine("exportSVGCSS error:");
+			outputChannel.appendLine(getMessage("ERROR_EXPORT_SVG_CSS"));
 			outputChannel.appendLine(err);
+			// show error message toast
+			showMessage(err, true);
 		}
-		outputChannel.appendLine("Done!");
+		outputChannel.appendLine(getMessage("ACTION_COMPLETE"));
 		outputChannel.appendLine('');
 	}));
 
-	outputChannel.appendLine("SVG Fairy is now active!");
+	outputChannel.appendLine(getMessage("ACTIVATE_EXTENSION"));
 }
 
 // This method is called when your extension is deactivated
@@ -220,10 +244,33 @@ function showMessage(text, isError) {
  */
 function addResultChannelMessage(path, changePercent, isError) {
 	if(!isError) {
-		outputChannel.appendLine("Saved: " + Math.trunc(changePercent) + "%\t" + path);
+		outputChannel.appendLine(getMessage("SUCCESS_SVG_OPTIMIZATION", [Math.trunc(changePercent), path]));
 	}else {
-		outputChannel.appendLine("Error: " + path);
+		outputChannel.appendLine(getMessage("ERROR", [path]));
 	}
+}
+
+/**
+ * Get and format the message with value substitutions
+ * @param {string} messageKey - the key of the message
+ * @param {string[]} subArr - the array of substitution values
+ * @returns {string}
+ */
+function getMessage(messageKey, subArr) {
+	if(typeof messages[messageKey] === "undefined") {
+		return "Could not fetch the message for this action"
+	}
+	// if no substitutions, return message
+	if(typeof subArr === "undefined" || subArr == null || subArr.length == 0) {
+		return messages[messageKey];
+	}
+	// if substitutions, grab value and update
+	let value = messages[messageKey];
+	// iterate substitutions
+	for(let i = 0; i < subArr.length; i++) {
+		value = value.replaceAll('{' + i + '}', subArr[i]);
+	}
+	return value;
 }
 
 // #endregion
@@ -241,7 +288,7 @@ function isDirectory(path) {
 		return fs.lstatSync(path).isDirectory();
 	}catch(err) {
 		// write error to output
-		outputChannel.appendLine("isDirectory() error:");
+		outputChannel.appendLine(getMessage("ERROR_ISDIRECTORY"));
 		outputChannel.appendLine(err);
 	}
 	return false;
@@ -328,7 +375,7 @@ function sanitizePath(path) {
 function sanitizeName(filename) {
 	// replace all symbols with '-'
 	// replace all groups of 2 or more '-' with a single '-'
-	// replace leading and trailing '-'
+	// remove leading and trailing '-'
 	return filename.replace(/[^A-Za-z0-9]/g,'-').replace(/\-{2,}/g, '-').replace(/^\-|\-$/g, '');
 }
 
@@ -340,8 +387,8 @@ function sanitizeName(filename) {
  */
 function getAllSVGs(directoryPath, fileArray) {
 	try {
-		let files = fs.readdirSync(directoryPath);
 		fileArray = fileArray || [];
+		let files = fs.readdirSync(directoryPath);
 
 		for(let i = 0; i < files.length; i++) {
 			let file = directoryPath + '/' + files[i];
@@ -353,7 +400,7 @@ function getAllSVGs(directoryPath, fileArray) {
 		}
 	}catch(err) {
 		// write error to output
-		outputChannel.appendLine("getAllSVGs() error:");
+		outputChannel.appendLine(getMessage("ERROR_GET_ALL_SVG"));
 		outputChannel.appendLine(err);
 	}
 	return fileArray;
@@ -407,12 +454,12 @@ function getSVGString(path) {
 		if(!isSVG(path)) {
 			return null;
 		}
-		// read SVG
-		let data = fs.readFileSync(path, 'utf8');
+		// read SVG with configured encoding (default 'utf8')
+		let data = fs.readFileSync(path, vscode.workspace.getConfiguration("svg-fairy").get("svgEncoding"));
 		return data.toString();
 	}catch(err) {
 		// write error to output
-		outputChannel.appendLine("getSVGString() error:");
+		outputChannel.appendLine(getMessage("ERROR_GET_SVG_STRING"));
 		outputChannel.appendLine(err);
 	}
 	return null;
@@ -438,7 +485,7 @@ function optimizeSVG(inPath, outPath) {
 		if(!isSVG(inPath)) {
 			return {
 				"success": false,
-				"message": svgFilename + " is not an SVG"
+				"message": getMessage("ERROR_FILE_NOT_SVG", [svgFilename])
 			};
 		}
 
@@ -461,15 +508,15 @@ function optimizeSVG(inPath, outPath) {
 		}
 
 		let message = '';
-		let changePercent = 0;
+		let changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
 		if(svgString.length > optimizedSvgString.length) {
-			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
-			message = svgFilename + " was reduced by " + Math.trunc(changePercent) + "%";
+			message = getMessage("SUCCESS_OPTIMIZE_REDUCED", [svgFilename, Math.trunc(changePercent)])
 		}else if(svgString.length < optimizedSvgString.length) {
-			changePercent = ((svgString.length - optimizedSvgString.length) / svgString.length) * 100;
-			message = svgFilename + " was increased by " + Math.trunc(changePercent) + "%";
+			message = getMessage("SUCCESS_OPTIMIZE_INCREASED", [svgFilename, Math.abs(Math.trunc(changePercent))])
+			outputChannel.appendLine(getMessage("ERROR_OPTIMIZE_ANOMALY", [svgFilename]));
 		}else {
-			message = svgFilename + " was optimized, but had no filesize changes";
+			changePercent = 0;
+			message = getMessage("SUCCESS_OPTIMIZE_SAME", [svgFilename])
 		}
 
 		return {
@@ -479,12 +526,12 @@ function optimizeSVG(inPath, outPath) {
 		};
 	}catch(err) {
 		// write error to output
-		outputChannel.appendLine("optimize() error:");
+		outputChannel.appendLine(getMessage("SEVERE_ERROR_OPTIMIZE_SVG"));
 		outputChannel.appendLine(err);
 	}
 	return {
 		"success": false,
-		"message": "Error optimizing SVG. See the output for more information."
+		"message": getMessage("SEVERE_ERROR_OPTIMIZE_SVG")
 	};
 }
 // #endregion
@@ -504,8 +551,17 @@ function encodeSVGToCSS(path) {
 	// get the contents of the SVG
 	let svgString = getSVGString(path);
 
+	// svg-fairy.externalQuotesValue
+	let externalQuotesValue = vscode.workspace.getConfiguration("svg-fairy").get("externalQuotesValue");
+
 	// Use single quotes instead of double to avoid encoding.
-	svgString = svgString.replace(/"/g, `'`);
+	if(externalQuotesValue === "double") {
+		svgString = svgString.replace(/"/g, `'`);
+	}
+	else { // else use double quotes instead of single
+		svgString = svgString.replace(/'/g, `"`);
+	}
+
 	// remove whitespace
 	svgString = svgString.replace(/>\s{1,}</g, `><`);
 	svgString = svgString.replace(/\s{2,}/g, ` `);
@@ -537,11 +593,11 @@ function getCSSString(className, cssString) {
 	let cssStringFmt = '';
 
 	// get export format
-	let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
+	let exportFormat = vscode.workspace.getConfiguration("svg-fairy").get("exportFormat");
 	
 	// format as CSS variable
 	if(exportFormat == "css-custom-properties") {
-		cssStringFmt += "\t--" + className + ":\n\t\t" + cssString + "\n";
+		cssStringFmt += "\t--" + className + ":\n\t\t" + cssString + '\n';
 	}
 	else // format as CSS class
 	if(exportFormat == "css-class") {
@@ -567,7 +623,7 @@ function exportCSSFile(encodedSVGToCSSArr, outPath) {
 		// full output file
 		let cssFileContents = '';
 
-		let exportFormat = vscode.workspace.getConfiguration('svg-fairy').get('exportFormat');
+		let exportFormat = vscode.workspace.getConfiguration("svg-fairy").get("exportFormat");
 		// css-custom-property header
 		if(exportFormat == "css-custom-properties") {
 			cssFileContents += ":root {\n"
@@ -580,24 +636,23 @@ function exportCSSFile(encodedSVGToCSSArr, outPath) {
 
 		// css-custom-property footer
 		if(exportFormat == "css-custom-properties") {
-			cssFileContents += "}"
+			cssFileContents += '}'
 		}
 
 		// write file
 		fs.writeFileSync(outPath, cssFileContents);
 
 		return {
-			"success": true,
-			"message": "SVGs encoded and exported to " + getFilename(outPath, true)
+			"success": true
 		}
 	}catch(err) {
 		// write error to output
-		outputChannel.appendLine("exportCSSFile() error:");
+		outputChannel.appendLine(getMessage("ERROR_EXPORT_SVG_CSS"));
 		outputChannel.appendLine(err);
 	}
 	return {
 		"success": false,
-		"message": "Error exporting CSS file. See the output for more information."
+		"message": getMessage("SEVERE_ERROR_EXPORT_SVG_CSS")
 	}
 }
 
