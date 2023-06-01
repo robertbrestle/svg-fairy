@@ -3,7 +3,7 @@
   "displayName": "SVG Fairy",
   "description": "A convenient wrapper for both SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "preview": true,
   "iconTODO": "images/icon.png",
   "repository": {
@@ -37,11 +37,11 @@
         },
         "svg-fairy.exportFormat": {
           "type": "string",
-          "default": "css-custom-properties",
-          "enum": ["css-custom-properties", "css-class"],
+          "default": "css-class",
+          "enum": ["css-class", "css-custom-properties"],
           "enumDescriptions": [
-            "Export SVGs as CSS custom properties (variables)",
-            "Export SVGs as CSS classes with background-image"
+            "Export SVGs as CSS classes with background-image",
+            "Export SVGs as CSS custom properties (variables)"
           ],
           "description": "The format of the exported SVG CSS"
         },

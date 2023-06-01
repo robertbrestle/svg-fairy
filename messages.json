@@ -8,7 +8,6 @@
 	"ERROR_GET_SVG_STRING": "Error reading SVG file",
 	"ERROR_ISDIRECTORY": "Error running directory check:",
 	"ERROR_NO_SVG_FOUND": "No SVG files found in {0}/",
-	"ERROR_OPTIMIZE_ANOMALY": "Anomaly: optimization resulted in increased file size: {0}",
 	"ERROR_OPTIMIZE_COPY": "Error running Optimize and copy:",
 	"ERROR_OPTIMIZE_IN_PLACE": "Error running Optimize in place:",
 	"ERROR_OPTIMIZE_SVG": "Error running Optimize SVG:",

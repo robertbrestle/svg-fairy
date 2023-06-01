@@ -14,7 +14,7 @@ A vscode extension wrapper for [SVGO](https://github.com/svg/svgo) and [Url enco
 This extension contributes the following settings: 
 
 * `svg-fairy.optimizeDirectory`: The name of the directory used with the "SVG optimize and copy". Defaults to `optimized`.
-* `svg-fairy.exportFormat`: The format for the exported SVG CSS. Defaults to `css-custom-properties`.
+* `svg-fairy.exportFormat`: The format for the exported SVG CSS. Defaults to `css-class`.
 * `svg-fairy.externalQuotesValue`: The external quote value which surrounds the encoded SVG in CSS. Defaults to `double`.
 * `svg-fairy.svgEncoding`: The encoding used for reading SVG file contents. Defaults to `utf8`.
 

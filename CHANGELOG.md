@@ -6,6 +6,17 @@ All notable changes to the "svg-fairy" extension will be documented in this file
 
 ## [Unreleased]
 
+## [0.0.6] - 2023-06-01
+
+### Added
+- extension test suite for all helper functions  
+
+### Changed
+- externalized extension helper functions  
+- `svg-fairy.exportFormat` defaults to `css-class`  
+
+
+
 ## [0.0.5] - 2023-05-25
 
 ### Added
