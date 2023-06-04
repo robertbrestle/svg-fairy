@@ -3,9 +3,9 @@
   "displayName": "SVG Fairy",
   "description": "A convenient wrapper for both SVGO and Url encoder for SVG",
   "publisher": "robertbrestle",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "preview": true,
-  "iconTODO": "images/icon.png",
+  "icon": "images/icon.png",
   "repository": {
     "url": "https://github.com/robertbrestle/svg-fairy.git",
     "type": "git"
