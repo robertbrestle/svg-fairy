@@ -9,6 +9,33 @@ A vscode extension wrapper for [SVGO](https://github.com/svg/svgo) and [Url enco
 - Encode and export SVG files for use in CSS  
 - All features work on individual files or directories  
 
+### Optimization with [SVGO](https://github.com/svg/svgo)
+
+Unmodified SVG:  
+```
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Circle Example</title>
+  <desc>
+    This is an example SVG with metadata.
+  </desc>
+  <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />
+  <text x="30" y="55" stroke="blue" rotate="-10">Circle</text>
+</svg>
+```
+
+Optimized SVG:  
+```
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#ff0" stroke="green" stroke-width="4"/><text x="30" y="55" stroke="#00f" rotate="-10">Circle</text></svg>
+```
+
+### CSS Export with [Url encoder for SVG](https://github.com/yoksel/url-encoder/)
+Exported optimized SVG for CSS:  
+```
+.circle {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ff0' stroke='green' stroke-width='4'/%3E%3Ctext x='30' y='55' stroke='%2300f' rotate='-10'%3ECircle%3C/text%3E%3C/svg%3E");
+}
+```
+
 ## Extension Settings
 
 This extension contributes the following settings: 
